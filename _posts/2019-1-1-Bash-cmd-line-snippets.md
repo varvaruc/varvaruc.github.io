@@ -14,3 +14,10 @@ avarvaruc@work-pc:~/$ find . -type f -iname '*_any_any_domestic_managed.str' -ex
 ./en_any_any_domestic_managed.str renamed as ./en_any_any_any_managed.str
 
 ```
+
+
+Generate a list of keys by excluding contents of certain directories and trying to match a regex for each line.
+
+```
+find . -name any.str -not -path '*RuntimeResMSO*' -not -path '*ResHelpTroubleshooting*' -exec grep -Eo "^\[(.*)\]\s+\:\s+(STRING|STRARRAY)\s*=\s*.*$" {} \; | cut -d: -f1
+```
