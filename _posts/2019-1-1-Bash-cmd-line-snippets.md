@@ -21,3 +21,98 @@ Generate a list of keys by excluding contents of certain directories and trying 
 ```
 find . -name any.str -not -path '*RuntimeResMSO*' -not -path '*ResHelpTroubleshooting*' -exec grep -Eo "^\[(.*)\]\s+\:\s+(STRING|STRARRAY)\s*=\s*.*$" {} \; | cut -d: -f1
 ```
+
+Diplay exit status of a command
+
+```
+#!/bin/bash
+# Display exit status of the command:
+# echo $?
+
+echo -n "Enter user name : "
+read USR
+cut -d: -f1 /etc/passwd | grep "$USR" > /dev/null
+OUT=$?
+if [ $OUT -eq 0 ];then
+echo "User account found!"
+else
+echo "User account does not exists in /etc/passwd file!"
+fi
+```
+
+Bash script command line arguments template
+
+```
+#!/bin/sh
+## Credits to https://agateau.com/2014/template-for-shell-based-command-line-scripts/
+
+set -e
+
+PROGNAME=$(basename $0)
+
+die() {
+    echo "$PROGNAME: $*" >&2
+    exit 1
+}
+
+usage() {
+    if [ "$*" != "" ] ; then
+        echo "Error: $*"
+    fi
+
+    cat << EOF
+Usage: $PROGNAME [OPTION ...] [foo] [bar]
+<Program description>.
+Options:
+-h, --help          display this usage message and exit
+-d, --delete        delete things
+-o, --output [FILE] write output to file
+EOF
+
+    exit 1
+}
+
+foo=""
+bar=""
+delete=0
+output="-"
+while [ $# -gt 0 ] ; do
+    case "$1" in
+    -h|--help)
+        usage
+        ;;
+    -d|--delete)
+        delete=1
+        ;;
+    -o|--output)
+        output="$2"
+        shift
+        ;;
+    -*)
+        usage "Unknown option '$1'"
+        ;;
+    *)
+        if [ -z "$foo" ] ; then
+            foo="$1"
+        elif [ -z "$bar" ] ; then
+            bar="$1"
+        else
+            usage "Too many arguments"
+        fi
+        ;;
+    esac
+    shift
+done
+
+if [ -z "$bar" ] ; then
+    usage "Not enough arguments"
+fi
+
+cat <<EOF
+foo=$foo
+bar=$bar
+delete=$delete
+output=$output
+EOF
+
+```
