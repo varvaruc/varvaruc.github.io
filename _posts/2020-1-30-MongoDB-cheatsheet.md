@@ -1,6 +1,5 @@
-# MongoDB Cheat Sheet
 
-Copied from here https://gist.github.com/bradtraversy/f407d642bdc3b31681bc7e56d95485b6 / https://www.youtube.com/watch?v=-56x56UppqQ
+Source: https://gist.github.com/bradtraversy/f407d642bdc3b31681bc7e56d95485b6 / https://www.youtube.com/watch?v=-56x56UppqQ
 
 
 ## Show All Databases
