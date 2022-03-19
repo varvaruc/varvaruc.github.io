@@ -1,12 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ander.ro</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>JS Bin</title>
+  <style>
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.heart {
+  height: 200px;
+  width: 200px;
+  background: blue;
+  border-radius: 50% 50% 0 50%;
+  position: relative;
+}
+
+.heart::after {
+  content: "";
+  height: 200px;
+  width: 200px;
+  background: blue;
+  border-radius: 50% 50% 50% 0;
+  display: inline-block;
+  transform: translate(150px);
+}
+
+.heart:before {
+  content:"";
+  position:absolute;
+  border-left: 160px solid transparent;
+  border-top: 160px solid yellow;
+  border-right: 160px solid transparent;
+  transform: translate(15px, 157px);
+  z-index: 1;
+}
+  </style>
 </head>
 <body>
-  
+  <div class="heart"></div>
 </body>
 </html>
