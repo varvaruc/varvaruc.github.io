@@ -59,15 +59,16 @@
     window.editor = ace.edit("editor");
     editor.setTheme("ace/theme/monokai");
     editor.getSession().setMode("ace/mode/html");
-    editor.setValue(`<!DOCTYPE html>
-  <html>
-  <head>
-  </head>
+    editor.setValue(`
+<!DOCTYPE html>
+<html>
+<head>
+</head>
 
-  <body>
-  </body>
+<body>
+</body>
 
-  </html>`,1); //1 = moves cursor to end
+</html>`,1); //1 = moves cursor to end
 
     editor.getSession().on('change', function() {
       update();
@@ -78,10 +79,10 @@
 
     editor.setOptions({
       fontSize: "16pt",
-      showLineNumbers: false,
+      showLineNumbers: true,
       showGutter: false,
       vScrollBarAlwaysVisible:true,
-      enableBasicAutocompletion: false, enableLiveAutocompletion: false
+      enableBasicAutocompletion: true, enableLiveAutocompletion: true
     });
 
     editor.setShowPrintMargin(false);
