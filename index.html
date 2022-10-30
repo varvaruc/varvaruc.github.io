@@ -1,46 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>JS Bin</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.12.3/ace.js"></script>
   <style>
-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
+    
+  html,body { margin:0; padding:0; height:100%; width:100%; overflow: hidden;}
 
-.heart {
-  height: 200px;
-  width: 200px;
-  background: blue;
-  border-radius: 50% 50% 0 50%;
-  position: relative;
-}
+  #editor {
+      height: 100%;
+      width:50%;
+      display:inline-block;
+  }
 
-.heart::after {
-  content: "";
-  height: 200px;
-  width: 200px;
-  background: blue;
-  border-radius: 50% 50% 50% 0;
-  display: inline-block;
-  transform: translate(150px);
-}
+  #container {
+    height:100%;
+    width:auto;
+    white-space : nowrap; 
+    overflow : hidden;
+    position:relative;
+  }
 
-.heart:before {
-  content:"";
-  position:absolute;
-  border-left: 160px solid transparent;
-  border-top: 160px solid yellow;
-  border-right: 160px solid transparent;
-  transform: translate(15px, 157px);
-  z-index: 1;
-}
+  #iframe {
+    height:100%;
+    display:inline-block;
+    width:50%;
+  }
+
+  /* disable tag matching */
+  .ace_editor .ace_marker-layer .ace_bracket { display: none }
   </style>
 </head>
-<body>
+
+<body onload='ready()'>
+  <div id='container'>
+    <div id="editor">
+    </div>
+
+    <iframe id='iframe' frameBorder="0">
+    </iframe>
+  </div>
+  <script>
+  function ready() {
+    setupEditor();
+    update(); 
+  }
+    
+  function update()
+  {
+    var idoc = document.getElementById('iframe').contentWindow.document;
+
+    idoc.open();
+    idoc.write(editor.getValue());
+    idoc.close();
+  }
+
+  function setupEditor()
+  {
+    window.editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    editor.getSession().setMode("ace/mode/html");
+    editor.setValue(`<!DOCTYPE html>
+  <html>
+  <head>
+  </head>
+
+  <body>
+  </body>
+
+  </html>`,1); //1 = moves cursor to end
+
+    editor.getSession().on('change', function() {
+      update();
+    });
+
+    editor.focus();
+
+
+    editor.setOptions({
+      fontSize: "16pt",
+      showLineNumbers: false,
+      showGutter: false,
+      vScrollBarAlwaysVisible:true,
+      enableBasicAutocompletion: false, enableLiveAutocompletion: false
+    });
+
+    editor.setShowPrintMargin(false);
+    editor.setBehavioursEnabled(false);
+  }
+  </script>
+
 </body>
+
 </html>
