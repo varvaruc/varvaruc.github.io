@@ -1,95 +1,519 @@
 <!DOCTYPE html>
-<html>
+<html lang="ro">
 <head>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.12.3/ace.js"></script>
-  <style>
-    
-  html,body { margin:0; padding:0; height:100%; width:100%; overflow: hidden;}
-
-  #editor {
-      height: 100%;
-      width:50%;
-      display:inline-block;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1215">
+<title>Flappy</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐤</text></svg>">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at 50% 0%, #17343c, #0a1114 72%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
-
-  #container {
-    height:100%;
-    width:auto;
-    white-space : nowrap; 
-    overflow : hidden;
-    position:relative;
+  #stage {
+    position: relative;
+    line-height: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
   }
-
-  #iframe {
-    height:100%;
-    display:inline-block;
-    width:50%;
+  canvas { display: block; touch-action: none; }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    text-align: center;
+    line-height: 1.2;
+    color: #fff;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .35);
+    background: rgba(10, 20, 24, .28);
   }
-
-  /* disable tag matching */
-  .ace_editor .ace_marker-layer .ace_bracket { display: none }
-  </style>
+  #overlay.hidden { display: none; }
+  .title { font-weight: 800; font-size: clamp(20px, 5.5vh, 30px); letter-spacing: .5px; }
+  .sub { font-size: clamp(11px, 2.4vh, 14px); opacity: .92; }
+  .big { font-weight: 800; font-size: clamp(34px, 9vh, 52px); font-variant-numeric: tabular-nums; }
+  .best { font-size: clamp(12px, 2.6vh, 15px); font-weight: 700; color: #ffe27a; }
+  .btn {
+    margin-top: 8px;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 24px;
+    font: inherit;
+    font-weight: 700;
+    font-size: clamp(12px, 2.6vh, 15px);
+    color: #12232a;
+    background: #ffe27a;
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(1px); }
+  .hidden-el { display: none !important; }
+</style>
 </head>
-
-<body onload='ready()'>
-  <div id='container'>
-    <div id="editor">
-    </div>
-
-    <iframe id='iframe' frameBorder="0">
-    </iframe>
-  </div>
-  <script>
-  function ready() {
-    setupEditor();
-    update(); 
-  }
-    
-  function update()
-  {
-    var idoc = document.getElementById('iframe').contentWindow.document;
-
-    idoc.open();
-    idoc.write(editor.getValue());
-    idoc.close();
-  }
-
-  function setupEditor()
-  {
-    window.editor = ace.edit("editor");
-    editor.setTheme("ace/theme/monokai");
-    editor.getSession().setMode("ace/mode/html");
-    editor.setValue(`
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-
 <body>
-</body>
+  <div id="stage">
+    <canvas id="c" width="360" height="640"></canvas>
+    <div id="overlay">
+      <div class="title" id="ovTitle">Flappy</div>
+      <div class="sub" id="ovSub">Apasă Space sau atinge ecranul</div>
+      <div class="big" id="ovScore">0</div>
+      <div class="best" id="ovBest"></div>
+      <button class="btn" id="ovBtn" type="button">Joacă</button>
+    </div>
+  </div>
 
-</html>`,1); //1 = moves cursor to end
+<script>
+(() => {
+  'use strict';
 
-    editor.getSession().on('change', function() {
-      update();
-    });
+  const W = 360;
+  const H = 640;
+  const GROUND_H = 74;
+  const FLOOR = H - GROUND_H;
 
-    editor.focus();
+  const GRAVITY = 1600;
+  const FLAP_V = -470;
+  const MAX_FALL = 900;
+  const BIRD_X = 96;
+  const BIRD_R = 12;
+  const PIPE_W = 56;
+  const PIPE_SPACING = 210;
 
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const ov = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const ovSub = document.getElementById('ovSub');
+  const ovScore = document.getElementById('ovScore');
+  const ovBest = document.getElementById('ovBest');
+  const ovBtn = document.getElementById('ovBtn');
 
-    editor.setOptions({
-      fontSize: "16pt",
-      showLineNumbers: true,
-      showGutter: false,
-      vScrollBarAlwaysVisible:true,
-      enableBasicAutocompletion: true, enableLiveAutocompletion: true
-    });
+  const BEST_KEY = 'flappy.best';
+  let best = 0;
+  try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch (_) {}
 
-    editor.setShowPrintMargin(false);
-    editor.setBehavioursEnabled(false);
+  let state = 'ready'; // ready | playing | dying | dead
+  let bird = { y: H * 0.42, vy: 0, angle: 0 };
+  let pipes = [];
+  let score = 0;
+  let groundOffset = 0;
+  let time = 0;
+  let deadAt = 0;
+  let gap = 152;
+  let speed = 150;
+
+  const clouds = [
+    { x: 40, y: 90, s: 1.0, v: 10 },
+    { x: 170, y: 150, s: 0.7, v: 6 },
+    { x: 260, y: 60, s: 1.25, v: 14 },
+    { x: 330, y: 210, s: 0.85, v: 8 }
+  ];
+
+  // ---- audio (lazy, tiny) ----
+  let ac = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      g.gain.value = vol == null ? 0.05 : vol;
+      o.connect(g).connect(ac.destination);
+      const t = ac.currentTime;
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t);
+      o.stop(t + dur);
+    } catch (_) {}
   }
-  </script>
 
+  // ---- layout ----
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const scale = Math.min((window.innerWidth - 16) / W, (window.innerHeight - 16) / H);
+    const s = Math.max(scale, 0.1);
+    canvas.width = Math.round(W * s * dpr);
+    canvas.height = Math.round(H * s * dpr);
+    canvas.style.width = (W * s) + 'px';
+    canvas.style.height = (H * s) + 'px';
+    ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+
+  // ---- overlay ----
+  function setOverlay(mode) {
+    if (mode === 'hidden') {
+      ov.classList.add('hidden');
+      return;
+    }
+    ov.classList.remove('hidden');
+    if (mode === 'ready') {
+      ovTitle.textContent = 'Flappy';
+      ovSub.textContent = 'Apasă Space sau atinge ecranul';
+      ovSub.classList.remove('hidden-el');
+      ovScore.classList.add('hidden-el');
+      ovBest.classList.add('hidden-el');
+      ovBtn.textContent = 'Joacă';
+    } else {
+      ovTitle.textContent = 'Game over';
+      ovSub.classList.add('hidden-el');
+      ovScore.textContent = String(score);
+      ovScore.classList.remove('hidden-el');
+      ovBest.textContent = score > 0 && score === best ? 'Record nou!' : 'Record: ' + best;
+      ovBest.classList.remove('hidden-el');
+      ovBtn.textContent = 'Încă o dată';
+    }
+  }
+
+  // ---- game flow ----
+  function reset() {
+    bird.y = H * 0.42;
+    bird.vy = 0;
+    bird.angle = 0;
+    pipes = [];
+    score = 0;
+    groundOffset = 0;
+    gap = 152;
+    speed = 150;
+    pipes.push(makePipe(W + 80));
+    state = 'ready';
+    setOverlay('ready');
+  }
+
+  function makePipe(x) {
+    const marginTop = 56;
+    const marginBottom = 80;
+    const lo = marginTop + gap / 2;
+    const hi = FLOOR - marginBottom - gap / 2;
+    const gapY = lo + Math.random() * Math.max(hi - lo, 1);
+    return { x: x, gapY: gapY, passed: false };
+  }
+
+  function start() {
+    state = 'playing';
+    setOverlay('hidden');
+    flap();
+  }
+
+  function flap() {
+    bird.vy = FLAP_V;
+    beep(660, 0.07, 'square', 0.045);
+  }
+
+  function die() {
+    state = 'dying';
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem(BEST_KEY, String(best)); } catch (_) {}
+    }
+    beep(150, 0.22, 'sawtooth', 0.06);
+  }
+
+  function showDead() {
+    state = 'dead';
+    deadAt = performance.now();
+    setOverlay('dead');
+  }
+
+  // ---- input ----
+  function press() {
+    if (state === 'ready') {
+      start();
+    } else if (state === 'playing') {
+      flap();
+    } else if (state === 'dead' && performance.now() - deadAt > 450) {
+      reset();
+      start();
+    }
+  }
+
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    press();
+  }, { passive: false });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter') {
+      e.preventDefault();
+      press();
+    }
+  });
+
+  ovBtn.addEventListener('click', (e) => {
+    // pointerdown already handles the press; avoid a double action on click
+    e.preventDefault();
+  });
+
+  // ---- update ----
+  function update(dt) {
+    time += dt;
+    groundOffset = (groundOffset + (state === 'playing' ? speed : 40) * dt) % 48;
+
+    for (const c of clouds) {
+      c.x -= c.v * dt;
+      if (c.x < -80) {
+        c.x = W + 60 + Math.random() * 80;
+        c.y = 40 + Math.random() * 190;
+      }
+    }
+
+    if (state === 'ready') {
+      bird.y = H * 0.42 + Math.sin(time * 3) * 7;
+      bird.angle = Math.sin(time * 3) * 0.08;
+      return;
+    }
+
+    if (state === 'playing') {
+      bird.vy = Math.min(bird.vy + GRAVITY * dt, MAX_FALL);
+      bird.y += bird.vy * dt;
+      bird.angle = Math.max(-0.45, Math.min(1.2, bird.vy / 700));
+
+      if (bird.y - BIRD_R < 0) {
+        bird.y = BIRD_R;
+        bird.vy = 0;
+      }
+
+      // difficulty ramps slowly with score
+      gap = Math.max(126, 152 - score * 1.6);
+      speed = 150 + Math.min(95, score * 3.2);
+
+      const last = pipes[pipes.length - 1];
+      if (!last || last.x < W - PIPE_SPACING) pipes.push(makePipe(W + 20));
+
+      for (const p of pipes) {
+        p.x -= speed * dt;
+        if (!p.passed && p.x + PIPE_W < BIRD_X - BIRD_R) {
+          p.passed = true;
+          score++;
+          beep(880, 0.06, 'sine', 0.05);
+        }
+      }
+      pipes = pipes.filter((p) => p.x + PIPE_W > -30);
+
+      // collisions
+      for (const p of pipes) {
+        const topH = p.gapY - gap / 2;
+        const botY = p.gapY + gap / 2;
+        if (hitRect(p.x, 0, PIPE_W, topH) || hitRect(p.x, botY, PIPE_W, FLOOR - botY)) {
+          die();
+          break;
+        }
+      }
+      if (state === 'playing' && bird.y + BIRD_R >= FLOOR) {
+        bird.y = FLOOR - BIRD_R;
+        die();
+      }
+      return;
+    }
+
+    if (state === 'dying') {
+      bird.vy = Math.min(bird.vy + GRAVITY * dt, MAX_FALL);
+      bird.y += bird.vy * dt;
+      bird.angle = Math.min(1.55, bird.angle + 4 * dt);
+      if (bird.y + BIRD_R >= FLOOR) {
+        bird.y = FLOOR - BIRD_R;
+        showDead();
+      }
+    }
+  }
+
+  function hitRect(rx, ry, rw, rh) {
+    const cx = Math.max(rx, Math.min(BIRD_X, rx + rw));
+    const cy = Math.max(ry, Math.min(bird.y, ry + rh));
+    const dx = BIRD_X - cx;
+    const dy = bird.y - cy;
+    const r = BIRD_R - 2;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  // ---- render ----
+  function render() {
+    const sky = ctx.createLinearGradient(0, 0, 0, FLOOR);
+    sky.addColorStop(0, '#43b8c4');
+    sky.addColorStop(0.62, '#7fd6d1');
+    sky.addColorStop(1, '#cdeece');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    drawClouds();
+    for (const p of pipes) drawPipe(p);
+    drawGround();
+    drawBird();
+    if (state === 'playing') drawScore();
+  }
+
+  function drawClouds() {
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    for (const c of clouds) {
+      const s = c.s;
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, 26 * s, 15 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(c.x + 22 * s, c.y + 4 * s, 20 * s, 12 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(c.x - 22 * s, c.y + 5 * s, 17 * s, 10 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawPipe(p) {
+    const topH = p.gapY - gap / 2;
+    const botY = p.gapY + gap / 2;
+
+    pipeBody(p.x, -20, topH + 20, true);
+    pipeBody(p.x, botY, FLOOR - botY, false);
+  }
+
+  function pipeBody(x, y, h, capAtBottom) {
+    const grad = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+    grad.addColorStop(0, '#4e9427');
+    grad.addColorStop(0.28, '#8bdc55');
+    grad.addColorStop(0.62, '#6cc23f');
+    grad.addColorStop(1, '#3f7d1e');
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, PIPE_W, h);
+
+    const capH = 24;
+    const capY = capAtBottom ? y + h - capH : y;
+    const capX = x - 5;
+    const capW = PIPE_W + 10;
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(capX, capY, capW, capH);
+
+    ctx.strokeStyle = 'rgba(46,90,22,0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, PIPE_W - 2, h - 2);
+    ctx.strokeRect(capX + 1, capY + 1, capW - 2, capH - 2);
+  }
+
+  function drawGround() {
+    ctx.fillStyle = '#ded895';
+    ctx.fillRect(0, FLOOR, W, GROUND_H);
+
+    ctx.fillStyle = '#73bf2e';
+    ctx.fillRect(0, FLOOR, W, 5);
+    ctx.fillStyle = '#5aa32e';
+    ctx.fillRect(0, FLOOR + 5, W, 3);
+
+    ctx.fillStyle = '#cfc27f';
+    const off = groundOffset;
+    for (let x = -48 + off; x < W + 48; x += 48) {
+      ctx.beginPath();
+      ctx.moveTo(x, FLOOR + 14);
+      ctx.lineTo(x + 24, FLOOR + 14);
+      ctx.lineTo(x + 14, H);
+      ctx.lineTo(x - 10, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawBird() {
+    ctx.save();
+    ctx.translate(BIRD_X, bird.y);
+    ctx.rotate(bird.angle);
+
+    // body
+    ctx.beginPath();
+    ctx.arc(0, 0, BIRD_R + 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#f7c948';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#c98d1b';
+    ctx.stroke();
+
+    // belly
+    ctx.beginPath();
+    ctx.arc(-1, 3, BIRD_R - 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffe27a';
+    ctx.fill();
+
+    // wing (animated flap)
+    const flapPhase = state === 'playing' || state === 'ready' ? Math.sin(time * 16) : 0.4;
+    ctx.save();
+    ctx.translate(-3, 1);
+    ctx.rotate(-0.25 + flapPhase * 0.45);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7.5, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff3c4';
+    ctx.fill();
+    ctx.strokeStyle = '#c98d1b';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // eye
+    ctx.beginPath();
+    ctx.arc(5, -5, 4.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(6.4, -5, 2.1, 0, Math.PI * 2);
+    ctx.fillStyle = '#20262b';
+    ctx.fill();
+
+    // beak
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(19, 2.5);
+    ctx.lineTo(10, 6);
+    ctx.closePath();
+    ctx.fillStyle = '#f2832e';
+    ctx.fill();
+    ctx.strokeStyle = '#c4611a';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawScore() {
+    ctx.save();
+    ctx.font = '700 44px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.strokeText(String(score), W / 2, 34);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(score), W / 2, 34);
+    ctx.restore();
+  }
+
+  // ---- loop ----
+  let last = performance.now();
+  function frame(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    if (!isFinite(dt) || dt < 0) dt = 0;
+    if (dt > 0.05) dt = 0.05;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
 </body>
-
 </html>
