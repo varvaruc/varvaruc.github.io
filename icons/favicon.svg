@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Flappy">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#43b8c4"/>
+      <stop offset="1" stop-color="#a8e6c8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sky)"/>
+  <polygon points="290,244 446,276 290,308" fill="#f2832e" stroke="#c4611a" stroke-width="9" stroke-linejoin="round"/>
+  <circle cx="238" cy="262" r="112" fill="#f7c948" stroke="#c98d1b" stroke-width="10"/>
+  <circle cx="232" cy="292" r="74" fill="#ffe27a"/>
+  <ellipse cx="192" cy="296" rx="50" ry="34" transform="rotate(-22 192 296)" fill="#fff3c4" stroke="#c98d1b" stroke-width="7"/>
+  <circle cx="282" cy="214" r="44" fill="#fff"/>
+  <circle cx="294" cy="214" r="21" fill="#20262b"/>
+</svg>
